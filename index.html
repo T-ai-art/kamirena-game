@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>かみれなちゃんの小さな幸せ集め</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif; touch-action: none; background: #000; }
+  canvas { display: block; }
+  #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  #ui-layer > * { pointer-events: auto; }
+
+  .overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20;
+  }
+  .overlay.hidden { display: none !important; }
+
+  /* ===== TITLE ===== */
+  #title-screen { background: linear-gradient(180deg, #FFF8E1 0%, #FFECB3 40%, #FFE082 100%); overflow-y: auto; }
+  .title-wrap { display: flex; flex-direction: column; align-items: center; padding: 30px 0 20px; min-height: 100%; justify-content: center; }
+  .title-emoji { font-size: 54px; margin-bottom: 8px; animation: bounce 2s infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  .title-text { font-size: 26px; font-weight: 900; color: #E65100; text-shadow: 2px 2px 0 #FFF; text-align: center; line-height: 1.3; }
+  .title-sub { font-size: 13px; color: #795548; margin: 4px 0 16px; text-align: center; line-height: 1.5; }
+
+  /* Hidden cheat code notification */
+  .cheat-notify {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 20px; font-weight: 900; color: #FF6D00; text-shadow: 0 0 15px #FFD54F, 0 0 30px #FF8F00;
+    background: rgba(255,243,224,0.95); padding: 14px 28px; border-radius: 20px;
+    border: 3px solid #FF8F00; z-index: 100; pointer-events: none;
+    animation: cheatIn 1.5s ease-out forwards;
+  }
+  @keyframes cheatIn { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 40%{transform:translate(-50%,-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.8)} }
+
+  .start-btn {
+    background: linear-gradient(180deg, #FFD54F, #FFB300); border: 3px solid #FF8F00; border-radius: 50px;
+    padding: 14px 48px; font-size: 22px; font-weight: 900; color: #4E342E; cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255,152,0,0.4); animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+  .start-btn:active { transform: scale(0.95) !important; }
+
+  .how-to { margin-top: 16px; padding: 12px 20px; background: rgba(255,255,255,0.7); border-radius: 15px; font-size: 12px; color: #5D4037; line-height: 1.7; max-width: 310px; text-align: left; }
+  .how-to b { font-size: 13px; display: block; text-align: center; margin-bottom: 5px; }
+
+  /* Ranking on title */
+  .ranking-box { margin-top: 14px; padding: 12px 16px; background: rgba(255,255,255,0.75); border-radius: 15px; max-width: 310px; width: 90%; }
+  .ranking-box h3 { font-size: 14px; text-align: center; color: #E65100; margin-bottom: 8px; }
+  .rank-row { display: flex; justify-content: space-between; font-size: 12px; color: #4E342E; padding: 2px 4px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .rank-row.me { background: #FFF3E0; font-weight: 700; border-radius: 4px; }
+  .rank-num { width: 24px; text-align: center; font-weight: 700; }
+  .rank-name { flex: 1; margin: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank-score { font-weight: 700; color: #FF6F00; }
+
+  /* ===== GAME OVER ===== */
+  #gameover-screen { background: rgba(0,0,0,0.78); display: none; }
+  #gameover-screen.show { display: flex; }
+  .go-box { background: linear-gradient(180deg,#FFF8E1,#FFECB3); border-radius: 25px; padding: 24px 30px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); max-width: 320px; width: 88%; max-height: 90vh; overflow-y: auto; }
+  .go-title { font-size: 22px; font-weight: 900; color: #E65100; margin-bottom: 8px; }
+  .go-score { font-size: 18px; color: #4E342E; margin-bottom: 4px; }
+  .go-detail { font-size: 13px; color: #795548; margin-bottom: 4px; }
+  .go-msg { font-size: 13px; color: #5D4037; margin-bottom: 14px; line-height: 1.5; white-space: pre-line; }
+
+  /* Name input */
+  .name-entry { margin-bottom: 14px; display: none; }
+  .name-entry.show { display: block; }
+  .name-entry p { font-size: 13px; color: #E65100; font-weight: 700; margin-bottom: 6px; }
+  #name-input { width: 180px; padding: 8px 12px; border: 2px solid #FFB300; border-radius: 20px; font-size: 14px; text-align: center; outline: none; }
+  #name-save { margin-top: 8px; padding: 8px 24px; background: #FFB300; border: none; border-radius: 20px; font-size: 14px; font-weight: 700; color: #4E342E; cursor: pointer; }
+
+  .go-ranking { margin: 10px 0 14px; text-align: left; }
+  .go-ranking h4 { font-size: 13px; text-align: center; color: #E65100; margin-bottom: 6px; }
+
+  .retry-btn { background: linear-gradient(180deg,#FFD54F,#FFB300); border: 3px solid #FF8F00; border-radius: 50px; padding: 12px 36px; font-size: 18px; font-weight: 900; color: #4E342E; cursor: pointer; }
+  .retry-btn:active { transform: scale(0.95); }
+
+  /* ===== OVERLAYS ===== */
+  #levelup-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 15; pointer-events: none; }
+  #levelup-overlay.show { display: flex; }
+  .lu-text { font-size: 30px; font-weight: 900; color: #FFF; text-shadow: 0 0 20px #FFD54F, 0 0 40px #FF8F00; animation: luAnim 2s ease-out forwards; }
+  @keyframes luAnim { 0%{transform:scale(0.5);opacity:0} 30%{transform:scale(1.3);opacity:1} 70%{transform:scale(1);opacity:1} 100%{transform:scale(1);opacity:0} }
+  #powerup-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle,rgba(255,213,79,0.4),transparent 70%); display: none; z-index: 12; pointer-events: none; animation: flash .5s ease-out; }
+  #powerup-flash.show { display: block; }
+  @keyframes flash { 0%{opacity:1} 100%{opacity:0} }
+
+  /* Special mode banner */
+  #special-banner { position: absolute; top: 56px; left: 0; width: 100%; text-align: center; z-index: 11; pointer-events: none; font-size: 11px; font-weight: 700; color: #FFD54F; text-shadow: 0 0 6px #FF6F00; display: none; }
+  #special-banner.show { display: block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui-layer">
+  <!-- TITLE -->
+  <div id="title-screen" class="overlay">
+    <div class="title-wrap">
+      <div class="title-emoji">🐰💛🎀</div>
+      <div class="title-text">かみれなちゃんの<br>小さな幸せ集め</div>
+      <div class="title-sub">〜鹿児島から東京、そしてステージへ〜</div>
+
+      <button class="start-btn" id="start-btn">START !</button>
+
+      <div class="how-to">
+        <b>あそびかた</b>
+        🐰 ◯ッフィーや果物を集めて幸せポイントUP！<br>
+        🚲 自転車は怖い！大きいからよけるの大変！<br>
+        💃 ダンスアイテムでバキバキモード発動！<br>
+        🌋 桜島パワーで無敵に！<br>
+        👆 画面をタッチ・スワイプで移動
+      </div>
+
+      <div class="ranking-box" id="title-ranking"></div>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameover-screen" class="overlay">
+    <div class="go-box">
+      <div class="go-title" id="go-title">おつかれさま！</div>
+      <div class="go-score" id="go-score"></div>
+      <div class="go-detail" id="go-detail"></div>
+      <div class="go-msg" id="go-msg"></div>
+      <div class="name-entry" id="name-entry">
+        <p>🏆 TOP 10入り！ ハンドルネームを入力</p>
+        <input type="text" id="name-input" maxlength="12" placeholder="なまえ">
+        <br><button id="name-save">登録する</button>
+      </div>
+      <div class="go-ranking" id="go-ranking"></div>
+      <button class="retry-btn" id="retry-btn">もう一回！</button>
+    </div>
+  </div>
+
+  <!-- LEVEL UP -->
+  <div id="levelup-overlay"><div class="lu-text" id="lu-text"></div></div>
+  <!-- FLASH -->
+  <div id="powerup-flash"></div>
+  <!-- SPECIAL BANNER -->
+  <div id="special-banner">🌋 TsukaTaku スペシャルモード 🌋</div>
+</div>
+
+<script>
+// ===================== ENGINE =====================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+// ===================== RANKING SYSTEM =====================
+const DEFAULT_RANKINGS = [
+  { name: 'かみれな', score: 5000 },
+  { name: 'ほのか', score: 4200 },
+  { name: 'あやな', score: 3500 },
+  { name: 'はすみ', score: 3100 },
+  { name: 'ゆりや', score: 2800 },
+  { name: 'はな', score: 2400 },
+  { name: 'ひのは', score: 2000 },
+  { name: 'かりん', score: 1700 },
+  { name: 'ゆめ', score: 1300 },
+  { name: '◯ッフィー', score: 1000 }
+];
+
+function getRankings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kamirena_rankings'));
+    if (saved && saved.length >= 10) return saved.slice(0, 10);
+  } catch(e) {}
+  localStorage.setItem('kamirena_rankings', JSON.stringify(DEFAULT_RANKINGS));
+  return [...DEFAULT_RANKINGS];
+}
+
+function saveRankings(rankings) {
+  localStorage.setItem('kamirena_rankings', JSON.stringify(rankings.slice(0, 10)));
+}
+
+function isTop10(score) {
+  const rankings = getRankings();
+  return rankings.length < 10 || score > rankings[rankings.length - 1].score;
+}
+
+function insertRanking(name, score) {
+  const rankings = getRankings();
+  rankings.push({ name, score });
+  rankings.sort((a, b) => b.score - a.score);
+  const top10 = rankings.slice(0, 10);
+  saveRankings(top10);
+  return top10;
+}
+
+function renderRankingHTML(rankings, highlightScore) {
+  const medals = ['🥇', '🥈', '🥉'];
+  let html = '<h3>🏆 WORLD TOP 10 🏆</h3>';
+  rankings.forEach((r, i) => {
+    const isMine = (r.score === highlightScore && r._highlight);
+    const cls = isMine ? ' me' : '';
+    const medal = i < 3 ? medals[i] : `${i + 1}`;
+    html += `<div class="rank-row${cls}"><span class="rank-num">${medal}</span><span class="rank-name">${escHTML(r.name)}</span><span class="rank-score">${r.score}</span></div>`;
+  });
+  return html;
+}
+function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function showTitleRanking() {
+  document.getElementById('title-ranking').innerHTML = renderRankingHTML(getRankings(), -1);
+}
+
+// ===================== GAME CONFIG =====================
+const STAGES = [
+  { name: '鹿児島ステージ', bg1: '#87CEEB', bg2: '#90EE90', gc: '#228B22', mountains: true, threshold: 0 },
+  { name: '東京ステージ', bg1: '#FFB6C1', bg2: '#DDA0DD', gc: '#808080', buildings: true, threshold: 500 },
+  { name: 'ライブステージ', bg1: '#1a0033', bg2: '#330066', gc: '#222', lights: true, threshold: 1500 }
+];
+const ITEMS = {
+  miffy:   { emoji:'🐰', pts:30, type:'good', label:'◯ッフィー！' },
+  fruit1:  { emoji:'🍓', pts:10, type:'good', label:'いちご' },
+  fruit2:  { emoji:'🍊', pts:10, type:'good', label:'みかん' },
+  fruit3:  { emoji:'🍇', pts:10, type:'good', label:'ぶどう' },
+  fruit4:  { emoji:'🍑', pts:10, type:'good', label:'もも' },
+  ribbon:  { emoji:'🎀', pts:15, type:'good', label:'リボン' },
+  heart:   { emoji:'💛', pts:20, type:'good', label:'ハート' },
+  star:    { emoji:'⭐', pts:15, type:'good', label:'おほし' },
+  flower:  { emoji:'🌸', pts:10, type:'good', label:'さくら' },
+  music:   { emoji:'🎵', pts:15, type:'good', label:'おんぷ' },
+  cake:    { emoji:'🍰', pts:25, type:'good', label:'糖分補給！' },
+  bike:    { emoji:'🚲', pts:-1, type:'bad',   label:'こわい！' },
+  micro:   { emoji:'📢', pts:-1, type:'bad',   label:'MC苦手...' },
+  dance:   { emoji:'💃', pts:50, type:'power',  label:'バキバキ！' },
+  volcano: { emoji:'🌋', pts:0,  type:'shield', label:'桜島パワー！' },
+};
+
+// ===================== GAME STATE =====================
+let game = {};
+let specialMode = false;
+let loopStarted = false;
+
+function initGame() {
+  game = {
+    score:0, lives:3, stageIndex:0,
+    playerX: canvas.width/2, playerY: canvas.height-80, playerW:50,
+    items:[], particles:[], texts:[],
+    combo:0, maxCombo:0, caught:0,
+    power:false, powerT:0, shield:false, shieldT:0,
+    spawnT:0, spawnI:45, diff:1, frame:0,
+    over:false, stars:[], blds:[], mnts:[], lAngle:0,
+  };
+  for(let i=0;i<50;i++) game.stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*0.7,s:Math.random()*2+1,t:Math.random()*Math.PI*2});
+  for(let i=0;i<8;i++) game.blds.push({x:i*(canvas.width/7)-20,w:30+Math.random()*40,h:60+Math.random()*120,win:Math.floor(Math.random()*5)+2});
+  for(let i=0;i<5;i++) game.mnts.push({x:i*(canvas.width/4),w:canvas.width/2.5,h:80+Math.random()*60});
+}
+
+// ===================== SPAWNING =====================
+function spawn() {
+  const stg = game.stageIndex;
+  let pool = ['fruit1','fruit1','fruit2','fruit3','fruit4','ribbon','heart','star','flower'];
+
+  // Bikes: more frequent and always present
+  pool.push('bike','bike','bike');
+  if(game.diff > 1.5) pool.push('bike','bike');
+  if(game.diff > 2.5) pool.push('bike','bike','bike');
+
+  // Miffy: 3x in special mode
+  const miffyChance = specialMode ? 0.54 : 0.18;
+  if(Math.random()<miffyChance) pool.push('miffy');
+  if(specialMode) { pool.push('miffy','miffy'); } // extra miffy in pool
+
+  if(stg>=1) pool.push('music','music','micro','cake');
+  if(stg>=2) pool.push('dance','music','music','bike','bike');
+  if(Math.random()<0.06) pool.push('dance');
+
+  // Volcano: base rate
+  let volcanoChance = 0.04;
+  if(specialMode) volcanoChance = 0.08; // doubled in special mode
+  if(Math.random()<volcanoChance) pool.push('volcano');
+
+  if(game.diff>2) pool.push('bike');
+  if(game.diff>3) pool.push('micro','bike');
+
+  // Special mode: remove half the bikes + add extra volcano
+  if(specialMode) {
+    let bikeCount = pool.filter(k=>k==='bike').length;
+    let toRemove = Math.floor(bikeCount / 2);
+    for(let i=0;i<toRemove;i++) {
+      const idx = pool.indexOf('bike');
+      if(idx!==-1) pool.splice(idx,1);
+    }
+    pool.push('volcano');
+  }
+
+  const key = pool[Math.floor(Math.random()*pool.length)];
+  const itm = ITEMS[key];
+  // Bikes are BIGGER (size 48 instead of 34) to make them harder to dodge
+  let size = 34;
+  if(key==='miffy'||key==='dance'||key==='volcano') size=42;
+  if(key==='bike') size=52; // bigger!
+  if(key==='micro') size=40;
+
+  const speed = 1.8 + game.diff*0.45 + Math.random()*1.5;
+
+  game.items.push({
+    x: 30+Math.random()*(canvas.width-60), y:-size, size,
+    speed, emoji:itm.emoji, pts:itm.pts, type:itm.type, label:itm.label, key,
+    wob: Math.random()*Math.PI*2, wobS: 0.02+Math.random()*0.03,
+  });
+}
+
+// ===================== PARTICLES / TEXT =====================
+function addP(x,y,c,n){for(let i=0;i<n;i++)game.particles.push({x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6-2,life:1,dec:.02+Math.random()*.03,s:3+Math.random()*4,c});}
+function addT(x,y,t,c){game.texts.push({x,y,t,c,life:1,vy:-2});}
+
+// ===================== UPDATE =====================
+function update(){
+  if(game.over) return;
+  game.frame++;
+  game.diff = 1 + game.score/250;
+  game.spawnI = Math.max(18, 45-game.diff*3);
+
+  let ns=0;
+  for(let i=STAGES.length-1;i>=0;i--) if(game.score>=STAGES[i].threshold){ns=i;break;}
+  if(ns>game.stageIndex){game.stageIndex=ns;showLU(STAGES[ns].name);}
+
+  game.spawnT++;
+  if(game.spawnT>=game.spawnI){game.spawnT=0;spawn();if(game.diff>2&&Math.random()<0.35)spawn();}
+
+  if(game.power){game.powerT--;if(game.powerT<=0)game.power=false;}
+  if(game.shield){game.shieldT--;if(game.shieldT<=0)game.shield=false;}
+
+  for(let i=game.items.length-1;i>=0;i--){
+    const it=game.items[i];
+    it.y+=it.speed*(game.power?0.4:1);
+    it.wob+=it.wobS;
+    // Bikes wobble MORE (harder to predict)
+    const wobAmp = it.key==='bike' ? 1.5 : 0.5;
+    it.x+=Math.sin(it.wob)*wobAmp;
+
+    const dx=it.x-game.playerX, dy=it.y-game.playerY;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    // Bikes have LARGER hit radius
+    const hitR = it.key==='bike' ? (game.playerW/2+it.size/2+8) : (game.playerW/2+it.size/2);
+
+    if(dist<hitR){
+      if(it.type==='good'){
+        const p=game.power?it.pts*2:it.pts;
+        game.score+=p; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.caught++;
+        addP(it.x,it.y,'#FFD54F',8);
+        addT(it.x,it.y,`+${p}${game.combo>=5?' x'+game.combo:''}`,'#FFD54F');
+      }else if(it.type==='bad'){
+        if(game.shield){addT(it.x,it.y,'桜島バリア！','#FF6D00');addP(it.x,it.y,'#FF6D00',12);}
+        else{game.lives--;game.combo=0;addP(it.x,it.y,'#FF1744',15);addT(it.x,it.y,it.label,'#FF1744');if(game.lives<=0){game.over=true;showGO();}}
+      }else if(it.type==='power'){
+        game.power=true;game.powerT=600;game.score+=it.pts;game.caught++;
+        addP(it.x,it.y,'#E040FB',20);addT(it.x,it.y,'バキバキダンス！','#E040FB');showFlash();
+      }else if(it.type==='shield'){
+        game.shield=true;game.shieldT=720;game.caught++;
+        addP(it.x,it.y,'#FF6D00',20);addT(it.x,it.y,'桜島パワー！','#FF6D00');showFlash();
+      }
+      game.items.splice(i,1);continue;
+    }
+    if(it.y>canvas.height+50){if(it.type==='good')game.combo=0;game.items.splice(i,1);}
+  }
+  for(let i=game.particles.length-1;i>=0;i--){const p=game.particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=p.dec;if(p.life<=0)game.particles.splice(i,1);}
+  for(let i=game.texts.length-1;i>=0;i--){const t=game.texts[i];t.y+=t.vy;t.life-=.02;if(t.life<=0)game.texts.splice(i,1);}
+  game.lAngle+=0.02;
+}
+
+// ===================== DRAW =====================
+function draw(){
+  const W=canvas.width, H=canvas.height, stg=STAGES[game.stageIndex];
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,stg.bg1);g.addColorStop(1,stg.bg2);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(stg.mountains)drawMnt();if(stg.buildings)drawBld();if(stg.lights)drawLights();
+  ctx.fillStyle=stg.gc;ctx.fillRect(0,H-40,W,40);
+
+  if(game.power){
+    // Subtle border glow instead of full overlay (keeps items visible)
+    ctx.save();
+    ctx.shadowColor='#E040FB'; ctx.shadowBlur=30;
+    ctx.strokeStyle=`rgba(224,64,251,${.25+Math.sin(game.frame*.1)*.15})`;
+    ctx.lineWidth=6;
+    ctx.strokeRect(0,0,W,H);
+    ctx.restore();
+  }
+  if(game.shield){
+    // Subtle border glow instead of full overlay (keeps items visible)
+    ctx.save();
+    ctx.shadowColor='#FF6D00'; ctx.shadowBlur=30;
+    ctx.strokeStyle=`rgba(255,109,0,${.25+Math.sin(game.frame*.08)*.15})`;
+    ctx.lineWidth=6;
+    ctx.strokeRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  for(const it of game.items){
+    ctx.save();ctx.font=`${it.size}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    if(game.shield || game.power){
+      // Brighter glow on all items during power/shield mode for visibility
+      ctx.shadowColor='#FFF'; ctx.shadowBlur=8;
+    }
+    if(it.type==='bad'){ctx.shadowColor='#FF1744';ctx.shadowBlur=10;}
+    else if(it.type==='power'){ctx.shadowColor='#E040FB';ctx.shadowBlur=12;}
+    else if(it.type==='shield'){ctx.shadowColor='#FF6D00';ctx.shadowBlur=12;}
+    ctx.fillText(it.emoji,it.x,it.y);ctx.restore();
+  }
+  drawPlayer();
+  for(const p of game.particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const t of game.texts){ctx.globalAlpha=t.life;ctx.font='bold 17px "Hiragino Sans"';ctx.textAlign='center';ctx.strokeStyle='#000';ctx.lineWidth=3;ctx.strokeText(t.t,t.x,t.y);ctx.fillStyle=t.c;ctx.fillText(t.t,t.x,t.y);}
+  ctx.globalAlpha=1;
+  drawHUD();
+}
+
+function drawPlayer(){
+  const x=game.playerX, y=game.playerY;
+  if(game.shield){ctx.beginPath();ctx.arc(x,y,35,0,Math.PI*2);ctx.fillStyle=`rgba(255,109,0,${.2+Math.sin(game.frame*.1)*.1})`;ctx.fill();ctx.strokeStyle='#FF6D00';ctx.lineWidth=2;ctx.stroke();}
+  if(game.power){ctx.beginPath();ctx.arc(x,y,35+Math.sin(game.frame*.15)*5,0,Math.PI*2);ctx.fillStyle=`rgba(224,64,251,${.15+Math.sin(game.frame*.12)*.1})`;ctx.fill();}
+  ctx.fillStyle='#FFD54F';ctx.beginPath();ctx.ellipse(x,y+8,18,22,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#FFB300';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#FFCC80';ctx.beginPath();ctx.arc(x,y-18,14,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.ellipse(x,y-22,16,14,0,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(x-16,y-22,5,20);ctx.fillRect(x+11,y-22,5,20);
+  ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.arc(x-5,y-17,2.5,0,Math.PI*2);ctx.arc(x+5,y-17,2.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,138,128,.5)';ctx.beginPath();ctx.ellipse(x-9,y-13,4,2.5,0,0,Math.PI*2);ctx.ellipse(x+9,y-13,4,2.5,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#D84315';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y-11,3,.1*Math.PI,.9*Math.PI);ctx.stroke();
+  ctx.fillStyle='#FFC107';ctx.beginPath();ctx.moveTo(x+8,y-28);ctx.lineTo(x+18,y-35);ctx.lineTo(x+12,y-28);ctx.lineTo(x+18,y-21);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(x+8,y-28);ctx.lineTo(x+2,y-35);ctx.lineTo(x+6,y-28);ctx.lineTo(x+2,y-21);ctx.closePath();ctx.fill();
+  if(game.power&&game.frame%5===0) addP(x+(Math.random()-.5)*30,y+(Math.random()-.5)*30,'#E040FB',1);
+}
+
+function drawMnt(){
+  const H=canvas.height;ctx.fillStyle='#4CAF50';
+  for(const m of game.mnts){ctx.beginPath();ctx.moveTo(m.x,H-40);ctx.lineTo(m.x+m.w/2,H-40-m.h);ctx.lineTo(m.x+m.w,H-40);ctx.closePath();ctx.fill();}
+  ctx.fillStyle='#5D4037';ctx.beginPath();ctx.moveTo(canvas.width*.6,H-40);ctx.lineTo(canvas.width*.75,H-140);ctx.lineTo(canvas.width*.9,H-40);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(200,200,200,.3)';const sy=H-150+Math.sin(game.frame*.02)*5;
+  ctx.beginPath();ctx.arc(canvas.width*.75,sy,15,0,Math.PI*2);ctx.arc(canvas.width*.75-10,sy-15,12,0,Math.PI*2);ctx.arc(canvas.width*.75+8,sy-12,10,0,Math.PI*2);ctx.fill();
+}
+function drawBld(){
+  const H=canvas.height;
+  for(const b of game.blds){ctx.fillStyle='#9E9E9E';ctx.fillRect(b.x,H-40-b.h,b.w,b.h);ctx.fillStyle='#FFF9C4';for(let j=0;j<b.win;j++)for(let k=0;k<2;k++)if(Math.random()>.3)ctx.fillRect(b.x+5+k*(b.w/2-2),H-40-b.h+8+j*18,8,10);}
+}
+function drawLights(){
+  const W=canvas.width,H=canvas.height;
+  for(const s of game.stars){const tw=Math.sin(game.frame*.05+s.t)*.5+.5;ctx.fillStyle=`rgba(255,255,255,${tw*.8})`;ctx.beginPath();ctx.arc(s.x,s.y,s.s,0,Math.PI*2);ctx.fill();}
+  for(let i=0;i<3;i++){const a=game.lAngle+i*(Math.PI*2/3),lx=W/2+Math.cos(a)*W*.3;const gr=ctx.createRadialGradient(lx,0,0,lx,H*.6,W*.2);const cs=['rgba(255,213,79,.15)','rgba(233,30,99,.1)','rgba(0,188,212,.1)'];gr.addColorStop(0,cs[i]);gr.addColorStop(1,'transparent');ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);}
+  for(let i=0;i<15;i++){const px=(i/14)*W,py=H-35+Math.sin(game.frame*.08+i*.5)*3;ctx.fillStyle=`rgba(255,213,79,${.5+Math.sin(game.frame*.06+i)*.3})`;ctx.fillRect(px-1,py-12,2,12);ctx.beginPath();ctx.arc(px,py-12,3,0,Math.PI*2);ctx.fill();}
+}
+
+function drawHUD(){
+  const W=canvas.width;
+  ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(0,0,W,55);
+  ctx.font='bold 16px "Hiragino Sans"';ctx.fillStyle='#FFD54F';ctx.textAlign='left';ctx.fillText(`幸せ ${game.score}`,12,22);
+  ctx.font='12px "Hiragino Sans"';ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.fillText(STAGES[game.stageIndex].name,W/2,22);
+  ctx.font='16px serif';ctx.textAlign='right';let lv='';for(let i=0;i<3;i++)lv+=i<game.lives?'💛':'🖤';ctx.fillText(lv,W-12,22);
+  if(game.combo>=3){ctx.font='bold 14px "Hiragino Sans"';ctx.fillStyle='#FF80AB';ctx.textAlign='center';ctx.fillText(`${game.combo} COMBO!`,W/2,44);}
+  if(game.power){ctx.font='bold 12px "Hiragino Sans"';ctx.fillStyle='#E040FB';ctx.textAlign='left';ctx.fillText(`💃 バキバキ ${Math.ceil(game.powerT/60)}s`,12,44);}
+  if(game.shield){ctx.font='bold 12px "Hiragino Sans"';ctx.fillStyle='#FF6D00';ctx.textAlign='right';ctx.fillText(`🌋 桜島バリア ${Math.ceil(game.shieldT/60)}s`,W-12,44);}
+}
+
+// ===================== UI =====================
+function showLU(n){const e=document.getElementById('levelup-overlay'),t=document.getElementById('lu-text');t.textContent=`🌟 ${n} 🌟`;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500);}
+function showFlash(){const e=document.getElementById('powerup-flash');e.classList.add('show');setTimeout(()=>e.classList.remove('show'),500);}
+
+function showGO(){
+  const msgs=[
+    {th:0,m:'はじめの一歩！\nまた遊んでね 🐰'},{th:200,m:'いい感じ！\n小さな幸せ、たくさん集まったね 💛'},
+    {th:500,m:'すごい！\n東京ステージまで来れた！ ⭐'},{th:1000,m:'バキバキだね！\nかみれなちゃんもきっと喜んでるよ 💃'},
+    {th:1500,m:'ライブステージ到達！\nあなたは立派なかみれな推し！ 🎀'},{th:3000,m:'伝説級！\nTsukatanさんレベルの推し力！ 🌋💛🐰'}
+  ];
+  let msg=msgs[0].m;for(const m of msgs)if(game.score>=m.th)msg=m.m;
+
+  document.getElementById('go-score').textContent=`幸せポイント: ${game.score}`;
+  document.getElementById('go-detail').textContent=`到達: ${STAGES[game.stageIndex].name} | ${game.caught}個ゲット | 最大${game.maxCombo}コンボ${specialMode?' | SP':''}`;
+  document.getElementById('go-msg').textContent=msg;
+
+  // Check TOP 10
+  const top10 = isTop10(game.score);
+  const ne = document.getElementById('name-entry');
+  if(top10){
+    ne.classList.add('show');
+    document.getElementById('name-input').value='';
+    document.getElementById('name-input').focus();
+  } else {
+    ne.classList.remove('show');
+  }
+
+  // Show current ranking
+  renderGORanking(getRankings(), -1);
+  document.getElementById('gameover-screen').classList.add('show');
+}
+
+function renderGORanking(rankings, hlScore){
+  const box = document.getElementById('go-ranking');
+  const medals=['🥇','🥈','🥉'];
+  let html='<h4>🏆 WORLD TOP 10 🏆</h4>';
+  rankings.forEach((r,i)=>{
+    const hl = r._hl ? ' me' : '';
+    const m = i<3?medals[i]:`${i+1}`;
+    html+=`<div class="rank-row${hl}"><span class="rank-num">${m}</span><span class="rank-name">${escHTML(r.name)}</span><span class="rank-score">${r.score}</span></div>`;
+  });
+  box.innerHTML=html;
+}
+
+// ===================== CONTROLS =====================
+let targetX = null;
+canvas.addEventListener('touchstart',e=>{e.preventDefault();targetX=e.touches[0].clientX;},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();targetX=e.touches[0].clientX;},{passive:false});
+canvas.addEventListener('touchend',e=>{e.preventDefault();},{passive:false});
+canvas.addEventListener('mousemove',e=>{targetX=e.clientX;});
+canvas.addEventListener('mousedown',e=>{targetX=e.clientX;});
+
+function movePlayer(){
+  if(targetX!==null){game.playerX+=(targetX-game.playerX)*.15;game.playerX=Math.max(25,Math.min(canvas.width-25,game.playerX));}
+}
+
+// ===================== MAIN LOOP =====================
+function loop(){movePlayer();update();draw();requestAnimationFrame(loop);}
+
+// ===================== SECRET CODE (hidden cheat) =====================
+const CHEAT_CODE = 'TsukaTaku';
+let cheatBuffer = '';
+document.addEventListener('keydown', (e) => {
+  // Only listen on title screen
+  const titleScreen = document.getElementById('title-screen');
+  if(titleScreen.classList.contains('hidden')) return;
+  // Ignore modifier keys, enter, tab, etc.
+  if(e.key.length !== 1) return;
+  cheatBuffer += e.key;
+  // Keep buffer trimmed to code length
+  if(cheatBuffer.length > CHEAT_CODE.length) {
+    cheatBuffer = cheatBuffer.slice(-CHEAT_CODE.length);
+  }
+  if(cheatBuffer === CHEAT_CODE && !specialMode) {
+    specialMode = true;
+    cheatBuffer = '';
+    // Show brief notification
+    const notify = document.createElement('div');
+    notify.className = 'cheat-notify';
+    notify.textContent = '🌋 TsukaTaku スペシャルモード ON！ 🌋';
+    document.body.appendChild(notify);
+    setTimeout(() => notify.remove(), 1500);
+  }
+});
+
+// ===================== EVENT HANDLERS =====================
+document.getElementById('start-btn').addEventListener('click',()=>{
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('special-banner').classList.toggle('show', specialMode);
+  initGame();
+  if(!loopStarted){loopStarted=true;loop();}
+});
+
+document.getElementById('retry-btn').addEventListener('click',()=>{
+  document.getElementById('gameover-screen').classList.remove('show');
+  document.getElementById('special-banner').classList.toggle('show', specialMode);
+  initGame();
+  targetX=canvas.width/2;
+});
+
+document.getElementById('name-save').addEventListener('click',()=>{
+  let name = document.getElementById('name-input').value.trim();
+  if(!name) name = 'ななし';
+  const rankings = insertRanking(name, game.score);
+  // Mark the newly inserted one
+  const marked = rankings.map(r => ({...r, _hl: r.name===name && r.score===game.score}));
+  // Only mark the first match
+  let found = false;
+  for(let i=0;i<marked.length;i++){
+    if(marked[i]._hl && !found) found=true;
+    else marked[i]._hl=false;
+  }
+  renderGORanking(marked, game.score);
+  document.getElementById('name-entry').classList.remove('show');
+  showTitleRanking(); // update title screen too
+});
+
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+
+// Init title ranking
+showTitleRanking();
+</script>
+</body>
+</html>
